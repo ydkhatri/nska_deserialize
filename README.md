@@ -33,6 +33,6 @@ with open(input_path, 'rb') as f:
         output_path_plist = input_path + '_deserialized.plist'
         output_path_json  = input_path + '_deserialized.json'
 
-        nd.write_plist_to_json_file(deserialised_plist, output_path_json)
-        nd.write_plist_to_file(deserialised_plist, output_path_plist)
+        nd.write_plist_to_json_file(deserialized_plist, output_path_json)
+        nd.write_plist_to_file(deserialized_plist, output_path_plist)
 ```
