@@ -1,17 +1,18 @@
 import setuptools
+import pathlib
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+here = pathlib.Path(__file__).parent.resolve()
 
-with open("requirements.txt", "r") as fh:
-    req = [x for x in fh.read().splitlines() if x]
+long_description = (here / 'README.md').read_text(encoding='utf-8')
+req = (here / 'requirements.txt').read_text(encoding='utf-8').splitlines()
+req = [x.strip() for x in req if x.strip()]
 
 setuptools.setup(
     name="nska_deserialize",
     version="1.0.0",
     author="Yogesh Khatri",
     author_email="yogesh@swiftforensics.com",
-    description="Convert NSKeyedArchiver plists into a deserialized human readable plist",
+    description="Convert NSKeyedArchiver plist into a deserialized human readable plist",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/ydkhatri/nska_deserialize",
@@ -24,4 +25,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
+    license="MIT License",
 )

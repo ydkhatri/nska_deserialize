@@ -1,5 +1,5 @@
 # NSKeyedArchive plist deserializer
-Deserializes NSKeyedArchiver created plists, which are frequent in macOS/iOS. These are serialized versions of normal plists and are meant for machine reading. The deserialized version is human readable for analysts and investigators who need to review the data.
+Deserializes NSKeyedArchiver created plists, which are frequent in macOS/iOS. These are serialized versions of plists (or data classes) and are meant for machine reading. The deserialized version is human readable for analysts and investigators who need to review the data.
 
 The library recursively deserializes the entire plist and returns a dictionary/list object representing the entire plist. Certain NSKeyedArchiver plists contain circular references, which results in infinite looping. The code detects and breaks these loops wherever found to return useable data.
 
@@ -20,19 +20,19 @@ input_path = '/Users/yogesh/Desktop/sample.sfl2'
 
 with open(input_path, 'rb') as f:
     try:
-        deserialised_plist = nd.deserialize_plist(f) # Get Deserialized plist
+        deserialized_plist = nd.deserialize_plist(f)
+        print(deserialized_plist)
     except (nd.DeserializeError, biplist.NotBinaryPlistException, 
             ccl_bplist.BplistError, ValueError, 
             TypeError, OSError, OverflowError) as ex:
         # These are all possible errors from libraries imported
         print('Had exception: ' + str(ex))
-        deserialised_plist = None
+        deserialized_plist = None
 
-    if deserialised_plist:
+    if deserialized_plist:
         output_path_plist = input_path + '_deserialized.plist'
         output_path_json  = input_path + '_deserialized.json'
 
         nd.write_plist_to_json_file(deserialised_plist, output_path_json)
         nd.write_plist_to_file(deserialised_plist, output_path_plist)
-        print('done')
 ```
