@@ -22,10 +22,14 @@ with open(input_path, 'rb') as f:
     try:
         deserialized_plist = nd.deserialize_plist(f)
         print(deserialized_plist)
-    except (nd.DeserializeError, biplist.NotBinaryPlistException, 
-            ccl_bplist.BplistError, ValueError, 
+    except (nd.DeserializeError, 
+            nd.biplist.NotBinaryPlistException, 
+            nd.biplist.InvalidPlistException,
+            nd.ccl_bplist.BplistError, 
+            ValueError, 
             TypeError, OSError, OverflowError) as ex:
         # These are all possible errors from libraries imported
+
         print('Had exception: ' + str(ex))
         deserialized_plist = None
 
