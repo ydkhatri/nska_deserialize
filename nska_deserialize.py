@@ -13,8 +13,12 @@ input_path = 'C:\\temp\\demo.plist'
 with open(input_path, 'rb') as f:
     try:
         deserialized_plist = nd.deserialize_plist(f) # Get Deserialized plist
-    except (nd.DeserializeError, biplist.NotBinaryPlistException, ccl_bplist.BplistError,
-             ValueError, TypeError, OSError, OverflowError) as ex:
+    except (nd.DeserializeError, 
+            nd.biplist.NotBinaryPlistException, 
+            nd.biplist.InvalidPlistException,
+            nd.ccl_bplist.BplistError, 
+            ValueError, 
+            TypeError, OSError, OverflowError) as ex:
         # These are all possible errors from libraries imported
         print('Had exception: ' + str(ex))
         deserialized_plist = None
