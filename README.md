@@ -13,7 +13,7 @@ pip3 install nska_deserialize
 
 #### Usage
 
-```
+```python
 import nska_deserialize as nd
 
 input_path = '/Users/yogesh/Desktop/sample.sfl2'
