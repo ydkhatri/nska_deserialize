@@ -172,15 +172,12 @@ def _get_root_element_names(f):
 
     return roots
 
-def _get_valid_nska_plist(f, source):
+def _get_valid_nska_plist(f):
     '''Checks if there is an embedded NSKeyedArchiver plist as a data blob. On 
        ios, several files are like that. Also converts any xml based plist to 
        binary plist. Returns a file object representing a binary plist file.
     '''
     plist = ''
-    if source == 'variable':
-        f = io.BytesIO(f)
-
     plist = biplist.readPlist(f)
     if isinstance(plist, bytes):
         data = plist
@@ -266,7 +263,7 @@ def deserialize_plist(path_or_file):
     else: # its a file
         f = path_or_file
 
-    f = _get_valid_nska_plist(f, "file")
+    f = _get_valid_nska_plist(f)
     return _unpack_top_level(f)
 
 def deserialize_plist_from_string(bytes_to_deserialize):
@@ -293,7 +290,7 @@ def deserialize_plist_from_string(bytes_to_deserialize):
         OSError, 
         OverflowError
     '''
-    f = _get_valid_nska_plist(bytes_to_deserialize, "variable")
+    f = _get_valid_nska_plist(io.BytesIO(bytes_to_deserialize))
     return _unpack_top_level(f)
 
 def _get_json_writeable_plist(in_plist, out_plist):
