@@ -177,6 +177,7 @@ def _get_valid_nska_plist(f):
        ios, several files are like that. Also converts any xml based plist to 
        binary plist. Returns a file object representing a binary plist file.
     '''
+    plist = ''
     plist = biplist.readPlist(f)
     if isinstance(plist, bytes):
         data = plist
@@ -196,6 +197,39 @@ def _get_valid_nska_plist(f):
         return tempfile
 
     return f
+
+def _unpack_top_level(f):
+    '''Does the work to actually unpack the NSKeyedArchive's top level. Returns 
+    the top level object. 
+    '''
+    ccl_bplist.set_object_converter(ccl_bplist.NSKeyedArchiver_common_objects_convertor)
+    plist = ccl_bplist.load(f)
+    ns_keyed_archiver_obj = ccl_bplist.deserialise_NsKeyedArchiver(plist, parse_whole_structure=True)
+
+    root_names = _get_root_element_names(f)
+    top_level = []
+
+    for root_name in root_names:
+        root = ns_keyed_archiver_obj[root_name]
+        if isinstance(root, dict):
+            plist = {}
+            _recurse_create_plist(plist, root, ns_keyed_archiver_obj.object_table)
+            if root_name.lower() != 'root':
+                plist = { root_name : plist }
+        elif isinstance(root, list):
+            plist = []
+            _recurse_create_plist(plist, root, ns_keyed_archiver_obj.object_table)
+            if root_name.lower() != 'root':
+                plist = { root_name : plist }
+        else:
+            plist = { root_name : root }
+        
+        if len(root_names) == 1:
+            top_level = plist
+        else: # > 1
+            top_level.append(plist)
+
+    return top_level
 
 def deserialize_plist(path_or_file):
     '''
@@ -230,34 +264,34 @@ def deserialize_plist(path_or_file):
         f = path_or_file
 
     f = _get_valid_nska_plist(f)
-    ccl_bplist.set_object_converter(ccl_bplist.NSKeyedArchiver_common_objects_convertor)
-    plist = ccl_bplist.load(f)
-    ns_keyed_archiver_obj = ccl_bplist.deserialise_NsKeyedArchiver(plist, parse_whole_structure=True)
+    return _unpack_top_level(f)
 
-    root_names = _get_root_element_names(f)
-    top_level = []
+def deserialize_plist_from_string(bytes_to_deserialize):
+    '''
+        Returns a deserialized plist as a dictionary/list. 
 
-    for root_name in root_names:
-        root = ns_keyed_archiver_obj[root_name]
-        if isinstance(root, dict):
-            plist = {}
-            _recurse_create_plist(plist, root, ns_keyed_archiver_obj.object_table)
-            if root_name.lower() != 'root':
-                plist = { root_name : plist }
-        elif isinstance(root, list):
-            plist = []
-            _recurse_create_plist(plist, root, ns_keyed_archiver_obj.object_table)
-            if root_name.lower() != 'root':
-                plist = { root_name : plist }
-        else:
-            plist = { root_name : root }
+        Parameters
+        ----------
+        bytes_to_deserialize:
+            Bytes representation of an NSKeyedArchive 
         
-        if len(root_names) == 1:
-            top_level = plist
-        else: # > 1
-            top_level.append(plist)
+        Returns
+        -------
+        A dictionary or list is returned depending on contents of 
+        the plist
 
-    return top_level
+        Exceptions
+        ----------
+        nska_deserialize.DeserializeError, 
+        biplist.NotBinaryPlistException, 
+        ccl_bplist.BplistError,
+        ValueError, 
+        TypeError, 
+        OSError, 
+        OverflowError
+    '''
+    f = _get_valid_nska_plist(io.BytesIO(bytes_to_deserialize))
+    return _unpack_top_level(f)
 
 def _get_json_writeable_plist(in_plist, out_plist):
     if isinstance(in_plist, list):

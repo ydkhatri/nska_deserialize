@@ -13,6 +13,8 @@ pip3 install nska_deserialize
 
 #### Usage
 
+##### From a file
+
 ```python
 import nska_deserialize as nd
 
@@ -39,4 +41,33 @@ with open(input_path, 'rb') as f:
 
         nd.write_plist_to_json_file(deserialized_plist, output_path_json)
         nd.write_plist_to_file(deserialized_plist, output_path_plist)
+```
+
+##### From a String
+
+```python
+import nska_deserialize as nd
+
+plist_in_string = "{notional string that might have come from a database}"
+
+try:
+    deserialized_plist = nd.deserialize_plist_from_string(plist_in_string)
+    print(deserialized_plist)
+except (nd.DeserializeError, 
+        nd.biplist.NotBinaryPlistException, 
+        nd.biplist.InvalidPlistException,
+        nd.ccl_bplist.BplistError, 
+        ValueError, 
+        TypeError, OSError, OverflowError) as ex:
+    # These are all possible errors from libraries imported
+
+    print('Had exception: ' + str(ex))
+    deserialized_plist = None
+
+if deserialized_plist:
+    output_path_plist = input_path + '_deserialized.plist'
+    output_path_json  = input_path + '_deserialized.json'
+
+    nd.write_plist_to_json_file(deserialized_plist, output_path_json)
+    nd.write_plist_to_file(deserialized_plist, output_path_plist)
 ```
