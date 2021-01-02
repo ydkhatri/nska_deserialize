@@ -48,7 +48,7 @@ with open(input_path, 'rb') as f:
 ```python
 import nska_deserialize as nd
 
-plist_in_string = "{notional string that might have come from a database}"
+plist_in_string = b"{notional string that might have come from a database}"
 
 try:
     deserialized_plist = nd.deserialize_plist_from_string(plist_in_string)
