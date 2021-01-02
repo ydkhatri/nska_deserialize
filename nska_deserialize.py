@@ -38,6 +38,7 @@ import ccl_bplist
 import io
 import json
 import plistlib
+import re
 
 deserializer_version = '1.2'
 
@@ -156,15 +157,14 @@ def _convert_CFUID_to_UID(plist):
             elif isinstance(v, list):
                 _convert_CFUID_to_UID(v)
 
-def _get_root_element_names(f):
+def _get_root_element_names(plist_dict):
     ''' The top element is usually called "root", but sometimes it is not!
         Hence we retrieve the correct name here. In some plists, there is
         more than one top element, this function will retrieve them all.
     '''
     roots = []
 
-    plist = biplist.readPlist(f)
-    top_element = plist.get('$top', None)
+    top_element = plist_dict.get('$top', None)
     if top_element:
         roots = [ x for x in top_element.keys() ]
     else:
@@ -172,16 +172,59 @@ def _get_root_element_names(f):
 
     return roots
 
+def _replace_all_hex_int_with_int(xml_text):
+    '''
+        Returns string replacing all instances of hex integers
+        in xml to their decimal equivalent 
+        like \<integer>0x55\</integer>
+        with \<integer>85\</integer>
+        
+        Exceptions: ValueError (for invalid int conversions)
+    '''
+    pattern = re.compile("<integer>0x[0-9a-fA-F]*</integer>")
+    search_from = 0
+    match = pattern.search(xml_text, search_from)
+    while match:
+        hex_int = xml_text[match.start() + 11:match.end()-10]
+        dec_int = str(int(hex_int, 16))
+        
+        xml_text = xml_text[:match.start() + 9] + dec_int + xml_text[match.end()-10:]
+        search_from = match.start() + 9 + len(dec_int) + 10
+        match = pattern.search(xml_text, search_from)
+    return xml_text
+
+def _verify_fix_plist_file(f):
+    '''Checks plist file. If invalid XML, tries to fix it.  
+       Returns a tuple (fixed_file, plist)
+    '''
+    try:
+        plist = biplist.readPlist(f)
+    except biplist.InvalidPlistException as ex:
+        # Assuming XML format that is badly formatted
+        # Perhaps this is manually edited or incorrectly formatted by a non-Apple utility  
+        # that has left whitespaces at the start of file before <?xml tag
+        # Or it's a bigSur (11.0) plist with hex integers
+        f.seek(0)
+        data = f.read().decode('utf8', 'ignore')
+        f.close()
+        data = _replace_all_hex_int_with_int(data) # Fix for BigSur plists with hex ints
+        data = data.lstrip(" \r\n\t").encode('utf8', 'ignore')
+        f = io.BytesIO(data)
+        # Now try reading again with biplist
+        plist = biplist.readPlist(f)
+    return f, plist
+
 def _get_valid_nska_plist(f):
     '''Checks if there is an embedded NSKeyedArchiver plist as a data blob. On 
        ios, several files are like that. Also converts any xml based plist to 
-       binary plist. Returns a file object representing a binary plist file.
+       binary plist. Returns a file object representing a binary plist file and
+       a plist object packaged as a tuple (file_obj, plist).
     '''
-    plist = ''
-    plist = biplist.readPlist(f)
-    if isinstance(plist, bytes):
+    f, plist = _verify_fix_plist_file(f)
+    if isinstance(plist, bytes): # If there is an embedded plist
         data = plist
         f = io.BytesIO(data)
+        f, plist = _verify_fix_plist_file(f)
     f.seek(0)
 
     # Check if file to be returned is an XML plist
@@ -190,15 +233,14 @@ def _get_valid_nska_plist(f):
     if header[0:6] != b'bplist': # must be xml
         # Convert xml to binary (else ccl_bplist wont load!)
         tempfile = io.BytesIO()
-        plist = biplist.readPlist(f)
         _convert_CFUID_to_UID(plist)
         biplist.writePlist(plist, tempfile)
         tempfile.seek(0)
-        return tempfile
+        return tempfile, plist
 
-    return f
+    return f, plist
 
-def _unpack_top_level(f):
+def _unpack_top_level(f, plist_biplist_obj):
     '''Does the work to actually unpack the NSKeyedArchive's top level. Returns 
     the top level object. 
     '''
@@ -206,7 +248,7 @@ def _unpack_top_level(f):
     plist = ccl_bplist.load(f)
     ns_keyed_archiver_obj = ccl_bplist.deserialise_NsKeyedArchiver(plist, parse_whole_structure=True)
 
-    root_names = _get_root_element_names(f)
+    root_names = _get_root_element_names(plist_biplist_obj)
     top_level = []
 
     for root_name in root_names:
@@ -263,8 +305,8 @@ def deserialize_plist(path_or_file):
     else: # its a file
         f = path_or_file
 
-    f = _get_valid_nska_plist(f)
-    return _unpack_top_level(f)
+    f, plist = _get_valid_nska_plist(f)
+    return _unpack_top_level(f, plist)
 
 def deserialize_plist_from_string(bytes_to_deserialize):
     '''
@@ -290,8 +332,8 @@ def deserialize_plist_from_string(bytes_to_deserialize):
         OSError, 
         OverflowError
     '''
-    f = _get_valid_nska_plist(io.BytesIO(bytes_to_deserialize))
-    return _unpack_top_level(f)
+    f, plist = _get_valid_nska_plist(io.BytesIO(bytes_to_deserialize))
+    return _unpack_top_level(f, plist)
 
 def _get_json_writeable_plist(in_plist, out_plist):
     if isinstance(in_plist, list):
