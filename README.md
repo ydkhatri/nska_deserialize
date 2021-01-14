@@ -27,6 +27,7 @@ with open(input_path, 'rb') as f:
     except (nd.DeserializeError, 
             nd.biplist.NotBinaryPlistException, 
             nd.biplist.InvalidPlistException,
+            plistlib.InvalidFileException,
             nd.ccl_bplist.BplistError, 
             ValueError, 
             TypeError, OSError, OverflowError) as ex:
@@ -56,6 +57,7 @@ try:
 except (nd.DeserializeError, 
         nd.biplist.NotBinaryPlistException, 
         nd.biplist.InvalidPlistException,
+        plistlib.InvalidFileException,
         nd.ccl_bplist.BplistError, 
         ValueError, 
         TypeError, OSError, OverflowError) as ex:

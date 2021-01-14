@@ -16,6 +16,7 @@ with open(input_path, 'rb') as f:
     except (nd.DeserializeError, 
             nd.biplist.NotBinaryPlistException, 
             nd.biplist.InvalidPlistException,
+            plistlib.InvalidFileException,
             nd.ccl_bplist.BplistError, 
             ValueError, 
             TypeError, OSError, OverflowError) as ex:
@@ -39,8 +40,9 @@ import io
 import json
 import plistlib
 import re
+import sys
 
-deserializer_version = '1.2'
+deserializer_version = '1.3.1'
 
 rec_depth = 0
 rec_uids = []
@@ -132,7 +134,7 @@ def _recurse_create_plist(plist, root, object_table):
                 plist.append(v)
     rec_depth -= 1
     
-def _convert_CFUID_to_UID(plist):
+def _convert_CFUID_to_UID(plist, use_plistlib=False):
     ''' For converting XML plists to binary, UIDs which are represented
         as strings 'CF$UID' must be translated to actual UIDs.
     '''
@@ -141,21 +143,27 @@ def _convert_CFUID_to_UID(plist):
             if isinstance(v, dict):
                 num = v.get('CF$UID', None)
                 if (num is None) or (not isinstance(num, int)):
-                    _convert_CFUID_to_UID(v)
+                    _convert_CFUID_to_UID(v, use_plistlib)
                 else:
-                    plist[k] = biplist.Uid(num)
+                    if use_plistlib:
+                        plist[k] = plistlib.UID(num)
+                    else:
+                        plist[k] = biplist.Uid(num)
             elif isinstance(v, list):
-                _convert_CFUID_to_UID(v)
+                _convert_CFUID_to_UID(v, use_plistlib)
     else: # list
         for index, v in enumerate(plist):
             if isinstance(v, dict):
                 num = v.get('CF$UID', None)
                 if (num is None) or (not isinstance(num, int)):
-                    _convert_CFUID_to_UID(v)
+                    _convert_CFUID_to_UID(v, use_plistlib)
                 else:
-                    plist[index] = biplist.Uid(num)
+                    if use_plistlib:
+                        plist[index] = plistlib.UID(num)
+                    else:
+                        plist[index] = biplist.Uid(num)
             elif isinstance(v, list):
-                _convert_CFUID_to_UID(v)
+                _convert_CFUID_to_UID(v, use_plistlib)
 
 def _get_root_element_names(plist_dict):
     ''' The top element is usually called "root", but sometimes it is not!
@@ -168,7 +176,7 @@ def _get_root_element_names(plist_dict):
     if top_element:
         roots = [ x for x in top_element.keys() ]
     else:
-        raise NskaDeserializeError('$top element not found! Not an NSKeyedArchive?')
+        raise DeserializeError('$top element not found! Not an NSKeyedArchive?')
 
     return roots
 
@@ -193,13 +201,21 @@ def _replace_all_hex_int_with_int(xml_text):
         match = pattern.search(xml_text, search_from)
     return xml_text
 
+def read_plist_file(fp):
+    '''Reads a plist file via plistlib or biplist depending on py version, and returns plist object'''
+    if sys.version_info >= (3, 9):
+        plist = plistlib.load(fp)
+    else:
+        plist = biplist.readPlist(fp)
+    return plist
+
 def _verify_fix_plist_file(f):
     '''Checks plist file. If invalid XML, tries to fix it.  
        Returns a tuple (fixed_file, plist)
     '''
     try:
-        plist = biplist.readPlist(f)
-    except biplist.InvalidPlistException as ex:
+        plist = read_plist_file(f)
+    except (biplist.InvalidPlistException, plistlib.InvalidFileException) as ex:
         # Assuming XML format that is badly formatted
         # Perhaps this is manually edited or incorrectly formatted by a non-Apple utility  
         # that has left whitespaces at the start of file before <?xml tag
@@ -211,7 +227,7 @@ def _verify_fix_plist_file(f):
         data = data.lstrip(" \r\n\t").encode('utf8', 'ignore')
         f = io.BytesIO(data)
         # Now try reading again with biplist
-        plist = biplist.readPlist(f)
+        plist = read_plist_file(f)
     return f, plist
 
 def _get_valid_nska_plist(f):
@@ -233,8 +249,12 @@ def _get_valid_nska_plist(f):
     if header[0:6] != b'bplist': # must be xml
         # Convert xml to binary (else ccl_bplist wont load!)
         tempfile = io.BytesIO()
-        _convert_CFUID_to_UID(plist)
-        biplist.writePlist(plist, tempfile)
+        if sys.version_info >= (3, 9):
+            _convert_CFUID_to_UID(plist, True)
+            plistlib.dump(plist, tempfile, fmt=plistlib.FMT_BINARY)
+        else:
+            _convert_CFUID_to_UID(plist, False)
+            biplist.writePlist(plist, tempfile)
         tempfile.seek(0)
         return tempfile, plist
 
@@ -292,6 +312,7 @@ def deserialize_plist(path_or_file):
         nska_deserialize.DeserializeError, 
         biplist.NotBinaryPlistException, 
         ccl_bplist.BplistError,
+        plistlib.InvalidFileException,
         ValueError, 
         TypeError, 
         OSError, 
@@ -327,6 +348,7 @@ def deserialize_plist_from_string(bytes_to_deserialize):
         nska_deserialize.DeserializeError, 
         biplist.NotBinaryPlistException, 
         ccl_bplist.BplistError,
+        plistlib.InvalidFileException,
         ValueError, 
         TypeError, 
         OSError, 

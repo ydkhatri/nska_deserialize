@@ -512,7 +512,9 @@ def convert_NSDate(obj):
     if not is_nsdate(obj):
         raise ValueError("obj does not have the correct structure for a NSDate serialised to a NSKeyedArchiver")
     try:
+        if obj["NS.time"] == -63114076800.0:
+            return None
         return datetime.datetime(2001, 1, 1) + datetime.timedelta(seconds=obj["NS.time"])
     except (OverflowError, ValueError) as ex:
-        print(ex)
+        print(ex, obj["NS.time"])
         return None
