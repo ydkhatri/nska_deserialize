@@ -42,7 +42,7 @@ import plistlib
 import re
 import sys
 
-deserializer_version = '1.3.1'
+deserializer_version = '1.3.2'
 
 rec_depth = 0
 rec_uids = []
