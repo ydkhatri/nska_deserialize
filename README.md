@@ -73,3 +73,10 @@ if deserialized_plist:
     nd.write_plist_to_json_file(deserialized_plist, output_path_json)
     nd.write_plist_to_file(deserialized_plist, output_path_plist)
 ```
+
+#### Change log
+**v1.3.1**  
+Version 1.3.1 is python 3.9 compatible (earlier versions of library may have problems with XML plists on python 3.9)
+
+**v1.2**  
+Support for macOS Big Sur plists, some have hexadecimal integers in XML, which caused problems with underlying plist parsers
