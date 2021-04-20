@@ -32,6 +32,7 @@ import sys
 import os
 import struct
 import datetime
+from uuid import UUID
 
 __version__ = "0.16"
 __description__ = "Converts Apple binary PList files into a native Python data structure"
@@ -318,6 +319,9 @@ def NSKeyedArchiver_common_objects_convertor(o):
     # Conversion: NSDate
     elif is_nsdate(o):
         return convert_NSDate(o)
+    # Conversion: NSUUID
+    elif is_nsuuid(o):
+        return convert_NSUUID(o)
     # Conversion: "$null" string
     elif isinstance(o, str) and o == "$null":
         return None
@@ -517,4 +521,27 @@ def convert_NSDate(obj):
         return datetime.datetime(2001, 1, 1) + datetime.timedelta(seconds=obj["NS.time"])
     except (OverflowError, ValueError) as ex:
         print(ex, obj["NS.time"])
+        return None
+
+# NSUUID convenience functions
+def is_nsuuid(obj):
+    if not isinstance(obj, dict):
+        return False
+    if "$class" not in obj.keys():
+        return False
+    if obj["$class"].get("$classname") not in ("NSUUID"):
+        return False
+    if "NS.uuidbytes" not in obj.keys():
+        return False
+
+    return True
+
+def convert_NSUUID(obj):
+    if not is_nsuuid(obj):
+        raise ValueError("obj does not have the correct structure for a NSUUID serialised to a NSKeyedArchiver")
+    try:
+        uuid = UUID(bytes=obj["NS.uuidbytes"])
+        return str(uuid).upper()
+    except (TypeError, ValueError) as ex:
+        print(ex, obj["NS.uuidbytes"])
         return None
