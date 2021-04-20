@@ -9,7 +9,7 @@ req = [x.strip() for x in req if x.strip()]
 
 setuptools.setup(
     name="nska_deserialize",
-    version="1.3.1",
+    version="1.3.2",
     author="Yogesh Khatri",
     author_email="yogesh@swiftforensics.com",
     description="Convert NSKeyedArchiver plist into a deserialized human readable plist",
