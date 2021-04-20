@@ -75,6 +75,9 @@ if deserialized_plist:
 ```
 
 #### Change log
+**v1.3.2**  
+Version 1.3.2 adds NSUUID type to ccl_bplist, which should remove at least some exceptions related to `unhashable type: 'NsKeyedArchiverDictionary'`
+
 **v1.3.1**  
 Version 1.3.1 is python 3.9 compatible (earlier versions of library may have problems with XML plists on python 3.9)
 
