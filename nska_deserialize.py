@@ -1,7 +1,7 @@
-"""
+r"""
 Converts NSKeyedArchiver plists to their deserialized versions.
 
-(c) 2020 Yogesh Khatri <yogesh@swiftforensics.com>, MIT License
+(c) 2020-2024 Yogesh Khatri <yogesh@swiftforensics.com>, MIT License
 
 Usage
 -----
@@ -16,7 +16,7 @@ with open(input_path, 'rb') as f:
     except (nd.DeserializeError, 
             nd.biplist.NotBinaryPlistException, 
             nd.biplist.InvalidPlistException,
-            plistlib.InvalidFileException,
+            nd.plistlib.InvalidFileException,
             nd.ccl_bplist.BplistError, 
             ValueError, 
             TypeError, OSError, OverflowError) as ex:
@@ -42,7 +42,7 @@ import plistlib
 import re
 import sys
 
-deserializer_version = '1.3.2'
+deserializer_version = '1.3.3'
 
 rec_depth = 0
 rec_uids = []
@@ -181,7 +181,7 @@ def _get_root_element_names(plist_dict):
     return roots
 
 def _replace_all_hex_int_with_int(xml_text):
-    '''
+    r'''
         Returns string replacing all instances of hex integers
         in xml to their decimal equivalent 
         like \<integer>0x55\</integer>
@@ -244,10 +244,12 @@ def _get_valid_nska_plist(f):
     f.seek(0)
 
     # Check if file to be returned is an XML plist
-    header = f.read(8)
+    file_content = f.read()
     f.seek(0)
-    if header[0:6] != b'bplist': # must be xml
-        # Convert xml to binary (else ccl_bplist wont load!)
+    if file_content[0:6] != b'bplist' or file_content.find('CF$UID') >= 0: 
+        # must be xml or has CF$UID
+        # 1. Xml must be converted to binary (else ccl_bplist wont load!)
+        # 2. CF$UID must be changed to UID for ccl_bplist
         tempfile = io.BytesIO()
         if sys.version_info >= (3, 9):
             _convert_CFUID_to_UID(plist, True)
