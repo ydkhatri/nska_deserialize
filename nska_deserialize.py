@@ -246,7 +246,7 @@ def _get_valid_nska_plist(f):
     # Check if file to be returned is an XML plist
     file_content = f.read()
     f.seek(0)
-    if file_content[0:6] != b'bplist' or file_content.find('CF$UID') >= 0: 
+    if file_content[0:6] != b'bplist' or file_content.find(b'CF$UID') >= 0: 
         # must be xml or has CF$UID
         # 1. Xml must be converted to binary (else ccl_bplist wont load!)
         # 2. CF$UID must be changed to UID for ccl_bplist
