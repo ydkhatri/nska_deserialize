@@ -3,6 +3,8 @@ Deserializes NSKeyedArchiver created plists, which are frequent in macOS/iOS. Th
 
 The library recursively deserializes the entire plist and returns a dictionary/list object representing the entire plist. Certain NSKeyedArchiver plists contain circular references, which results in infinite looping. The code detects and breaks these loops wherever found to return useable data.
 
+#### _New: From version 1.4.0, you can pass any plist, even if not an NSKA. If the option `full_recurse_convert_nska=True` is used, it will recurse any plist, and find and convert all nested NSKA from any NS.data field found._
+
 #### Requirements: Python 3.6+ (3.8 or higher recommended)
 Due to improvements in the built-in `plistlib` library in Python 3.8, it is recommended to use 3.8 or above. For 3.7 or lower, it should work fine for most plists, some might fail to save correctly. If you don't care about saving the deserialized plist (using the built-in library functions), then this should make no difference.
 
@@ -11,7 +13,11 @@ Due to improvements in the built-in `plistlib` library in Python 3.8, it is reco
 pip3 install nska_deserialize
 ```
 
-#### Usage
+### Usage
+
+Use the functions `deserialize_plist` or `deserialize_plist_from_string` to convert NSKeyedArchives (NSKA). 
+
+By default `full_recurse_convert_nska=False` maintaining old behaviour which is to throw an exception if the archive is not NSKA, and no recursive processing for nested NSKA data blobs. If set to `True`, then it will process any plist even if not an NSKA (at root level).
 
 ##### From a file
 
@@ -22,7 +28,7 @@ input_path = '/Users/yogesh/Desktop/sample.sfl2'
 
 with open(input_path, 'rb') as f:
     try:
-        deserialized_plist = nd.deserialize_plist(f)
+        deserialized_plist = nd.deserialize_plist(f, full_recurse_convert_nska=True)
         print(deserialized_plist)
     except (nd.DeserializeError, 
             nd.biplist.NotBinaryPlistException, 
@@ -49,10 +55,10 @@ with open(input_path, 'rb') as f:
 ```python
 import nska_deserialize as nd
 
-plist_in_string = b"{notional string that might have come from a database}"
+plist_in_string = b"{notional plist as string that might have come from a database}"
 
 try:
-    deserialized_plist = nd.deserialize_plist_from_string(plist_in_string)
+    deserialized_plist = nd.deserialize_plist_from_string(plist_in_string, full_recurse_convert_nska=True)
     print(deserialized_plist)
 except (nd.DeserializeError, 
         nd.biplist.NotBinaryPlistException, 
@@ -74,7 +80,10 @@ if deserialized_plist:
     nd.write_plist_to_file(deserialized_plist, output_path_plist)
 ```
 
-#### Change log
+### Change log
+**v1.4.0**  
+New boolean option `full_recurse_convert_nska` for full recursion of plist and conversion of all nested NSKeyedArchive data.
+
 **v1.3.3**  
 Fixes an issue with CF$UID conversion, this was not being applied to all plists resulting in empty output for certain plists.  
 Python 3.12 compatible and tested.

@@ -12,7 +12,7 @@ input_path = 'C:\\temp\\demo.plist'
 
 with open(input_path, 'rb') as f:
     try:
-        deserialized_plist = nd.deserialize_plist(f) # Get Deserialized plist
+        deserialized_plist = nd.deserialize_plist(f, True) # Get Deserialized plist
     except (nd.DeserializeError, 
             nd.biplist.NotBinaryPlistException, 
             nd.biplist.InvalidPlistException,
@@ -42,7 +42,7 @@ import plistlib
 import re
 import sys
 
-deserializer_version = '1.3.3'
+deserializer_version = '1.4.0'
 
 rec_depth = 0
 rec_uids = []
@@ -201,7 +201,7 @@ def _replace_all_hex_int_with_int(xml_text):
         match = pattern.search(xml_text, search_from)
     return xml_text
 
-def read_plist_file(fp):
+def _read_plist_file(fp):
     '''Reads a plist file via plistlib or biplist depending on py version, and returns plist object'''
     if sys.version_info >= (3, 9):
         plist = plistlib.load(fp)
@@ -214,7 +214,7 @@ def _verify_fix_plist_file(f):
        Returns a tuple (fixed_file, plist)
     '''
     try:
-        plist = read_plist_file(f)
+        plist = _read_plist_file(f)
     except (biplist.InvalidPlistException, plistlib.InvalidFileException) as ex:
         # Assuming XML format that is badly formatted
         # Perhaps this is manually edited or incorrectly formatted by a non-Apple utility  
@@ -227,7 +227,7 @@ def _verify_fix_plist_file(f):
         data = data.lstrip(" \r\n\t").encode('utf8', 'ignore')
         f = io.BytesIO(data)
         # Now try reading again with biplist
-        plist = read_plist_file(f)
+        plist = _read_plist_file(f)
     return f, plist
 
 def _get_valid_nska_plist(f):
@@ -262,13 +262,43 @@ def _get_valid_nska_plist(f):
 
     return f, plist
 
-def _unpack_top_level(f, plist_biplist_obj):
+def _unpack_top_level(f, plist_biplist_obj, full_recurse_convert_nska=False):
     '''Does the work to actually unpack the NSKeyedArchive's top level. Returns 
     the top level object. 
     '''
     ccl_bplist.set_object_converter(ccl_bplist.NSKeyedArchiver_common_objects_convertor)
-    plist = ccl_bplist.load(f)
-    ns_keyed_archiver_obj = ccl_bplist.deserialise_NsKeyedArchiver(plist, parse_whole_structure=True)
+    ccl_plist = ccl_bplist.load(f)
+    if '$archiver' in plist_biplist_obj:
+        deserialised = _deserialize_nska(ccl_plist, plist_biplist_obj)
+        if full_recurse_convert_nska:
+            return _recurse_find_and_deserialize_nska(deserialised)
+        else:
+            return deserialised
+    elif full_recurse_convert_nska:
+        # not an archiver at root, will attempt to deserialize anyway
+        plist = _recurse_find_and_deserialize_nska(plist_biplist_obj)
+        return plist
+    else:
+        # emulate old behaviour, do not process non-NSKA plist
+        raise DeserializeError('No $archiver object found! Not a NSKeyedArchive.')
+
+def _recurse_find_and_deserialize_nska(plist):
+    '''Find and replace all instances of NSKA with deserialized plist branch'''
+    if isinstance(plist, dict):
+        for k, v in plist.items():
+            if isinstance(v, bytes) or isinstance(v, dict) or isinstance(v, list):
+                plist[k] = _recurse_find_and_deserialize_nska(v)
+    elif isinstance(plist, list):
+        for i, v in enumerate(plist):
+            if isinstance(v, bytes)or isinstance(v, dict) or isinstance(v, list):
+                plist[i] = _recurse_find_and_deserialize_nska(v)
+    elif isinstance(plist, bytes):
+        if plist[0:6] == b'bplist' or (plist.find(b'<?xml') >= 0 and plist.find(b'<plist version')>=0): 
+            plist = deserialize_plist_from_string(plist, True)
+    return plist
+
+def _deserialize_nska(ccl_plist, plist_biplist_obj):
+    ns_keyed_archiver_obj = ccl_bplist.deserialise_NsKeyedArchiver(ccl_plist, parse_whole_structure=True)
 
     root_names = _get_root_element_names(plist_biplist_obj)
     top_level = []
@@ -295,7 +325,7 @@ def _unpack_top_level(f, plist_biplist_obj):
 
     return top_level
 
-def deserialize_plist(path_or_file):
+def deserialize_plist(path_or_file, full_recurse_convert_nska=False):
     '''
         Returns a deserialized plist as a dictionary/list. 
 
@@ -303,7 +333,8 @@ def deserialize_plist(path_or_file):
         ----------
         path_or_file:
             Path or file-like object of an NSKeyedArchive file
-        
+        full_recurse_convert_nska:
+            Recurse over the entire plist and deserialize all NSKA objects (False by default)
         Returns
         -------
         A dictionary or list is returned depending on contents of 
@@ -329,9 +360,9 @@ def deserialize_plist(path_or_file):
         f = path_or_file
 
     f, plist = _get_valid_nska_plist(f)
-    return _unpack_top_level(f, plist)
+    return _unpack_top_level(f, plist, full_recurse_convert_nska)
 
-def deserialize_plist_from_string(bytes_to_deserialize):
+def deserialize_plist_from_string(bytes_to_deserialize, full_recurse_convert_nska=False):
     '''
         Returns a deserialized plist as a dictionary/list. 
 
@@ -339,6 +370,8 @@ def deserialize_plist_from_string(bytes_to_deserialize):
         ----------
         bytes_to_deserialize:
             Bytes representation of an NSKeyedArchive 
+        full_recurse_convert_nska:
+            Recurse over the entire plist and deserialize all NSKA objects (False by default)
         
         Returns
         -------
@@ -357,7 +390,7 @@ def deserialize_plist_from_string(bytes_to_deserialize):
         OverflowError
     '''
     f, plist = _get_valid_nska_plist(io.BytesIO(bytes_to_deserialize))
-    return _unpack_top_level(f, plist)
+    return _unpack_top_level(f, plist, full_recurse_convert_nska)
 
 def _get_json_writeable_plist(in_plist, out_plist):
     if isinstance(in_plist, list):
