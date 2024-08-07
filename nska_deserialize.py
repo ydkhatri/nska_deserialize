@@ -301,27 +301,23 @@ def _deserialize_nska(ccl_plist, plist_biplist_obj):
     ns_keyed_archiver_obj = ccl_bplist.deserialise_NsKeyedArchiver(ccl_plist, parse_whole_structure=True)
 
     root_names = _get_root_element_names(plist_biplist_obj)
-    top_level = []
+    top_level = {}
 
     for root_name in root_names:
         root = ns_keyed_archiver_obj[root_name]
         if isinstance(root, dict):
             plist = {}
             _recurse_create_plist(plist, root, ns_keyed_archiver_obj.object_table)
-            if root_name.lower() != 'root':
-                plist = { root_name : plist }
         elif isinstance(root, list):
             plist = []
             _recurse_create_plist(plist, root, ns_keyed_archiver_obj.object_table)
-            if root_name.lower() != 'root':
-                plist = { root_name : plist }
         else:
-            plist = { root_name : root }
-        
+            plist = root
+
         if len(root_names) == 1:
             top_level = plist
         else: # > 1
-            top_level.append(plist)
+            top_level[root_name] = plist
 
     return top_level
 
