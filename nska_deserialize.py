@@ -308,6 +308,8 @@ def _deserialize_nska(ccl_plist, plist_biplist_obj, format=list):
 
     for root_name in root_names:
         root = ns_keyed_archiver_obj[root_name]
+        if root is None:
+            root = ''
         if isinstance(root, dict):
             plist = {}
             _recurse_create_plist(plist, root, ns_keyed_archiver_obj.object_table)
