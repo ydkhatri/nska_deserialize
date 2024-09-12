@@ -262,14 +262,14 @@ def _get_valid_nska_plist(f):
 
     return f, plist
 
-def _unpack_top_level(f, plist_biplist_obj, full_recurse_convert_nska=False):
+def _unpack_top_level(f, plist_biplist_obj, full_recurse_convert_nska=False, format=list):
     '''Does the work to actually unpack the NSKeyedArchive's top level. Returns 
     the top level object. 
     '''
     ccl_bplist.set_object_converter(ccl_bplist.NSKeyedArchiver_common_objects_convertor)
     ccl_plist = ccl_bplist.load(f)
     if '$archiver' in plist_biplist_obj:
-        deserialised = _deserialize_nska(ccl_plist, plist_biplist_obj)
+        deserialised = _deserialize_nska(ccl_plist, plist_biplist_obj, format)
         if full_recurse_convert_nska:
             return _recurse_find_and_deserialize_nska(deserialised)
         else:
@@ -297,35 +297,44 @@ def _recurse_find_and_deserialize_nska(plist):
             plist = deserialize_plist_from_string(plist, True)
     return plist
 
-def _deserialize_nska(ccl_plist, plist_biplist_obj):
+def _deserialize_nska(ccl_plist, plist_biplist_obj, format=list):
     ns_keyed_archiver_obj = ccl_bplist.deserialise_NsKeyedArchiver(ccl_plist, parse_whole_structure=True)
 
     root_names = _get_root_element_names(plist_biplist_obj)
-    top_level = []
+    if format == dict:
+        top_level = {}
+    else:
+        top_level = []
 
     for root_name in root_names:
         root = ns_keyed_archiver_obj[root_name]
         if isinstance(root, dict):
             plist = {}
             _recurse_create_plist(plist, root, ns_keyed_archiver_obj.object_table)
-            if root_name.lower() != 'root':
+            if root_name.lower() != 'root' and format != dict:
                 plist = { root_name : plist }
         elif isinstance(root, list):
             plist = []
             _recurse_create_plist(plist, root, ns_keyed_archiver_obj.object_table)
-            if root_name.lower() != 'root':
+            if root_name.lower() != 'root' and format != dict:
                 plist = { root_name : plist }
         else:
-            plist = { root_name : root }
-        
+            if format == dict:
+                plist = root
+            else:
+                plist = { root_name : root}
+
         if len(root_names) == 1:
             top_level = plist
         else: # > 1
-            top_level.append(plist)
+            if format == dict:
+                top_level[root_name] = plist
+            else:
+                top_level.append(plist)
 
     return top_level
 
-def deserialize_plist(path_or_file, full_recurse_convert_nska=False):
+def deserialize_plist(path_or_file, full_recurse_convert_nska=False, format=list):
     '''
         Returns a deserialized plist as a dictionary/list. 
 
@@ -335,6 +344,9 @@ def deserialize_plist(path_or_file, full_recurse_convert_nska=False):
             Path or file-like object of an NSKeyedArchive file
         full_recurse_convert_nska:
             Recurse over the entire plist and deserialize all NSKA objects (False by default)
+        format:
+            If 'dict', the top level object will be a dictionary, else it will be a list
+
         Returns
         -------
         A dictionary or list is returned depending on contents of 
@@ -360,9 +372,9 @@ def deserialize_plist(path_or_file, full_recurse_convert_nska=False):
         f = path_or_file
 
     f, plist = _get_valid_nska_plist(f)
-    return _unpack_top_level(f, plist, full_recurse_convert_nska)
+    return _unpack_top_level(f, plist, full_recurse_convert_nska, format)
 
-def deserialize_plist_from_string(bytes_to_deserialize, full_recurse_convert_nska=False):
+def deserialize_plist_from_string(bytes_to_deserialize, full_recurse_convert_nska=False, format=list):
     '''
         Returns a deserialized plist as a dictionary/list. 
 
@@ -372,6 +384,8 @@ def deserialize_plist_from_string(bytes_to_deserialize, full_recurse_convert_nsk
             Bytes representation of an NSKeyedArchive 
         full_recurse_convert_nska:
             Recurse over the entire plist and deserialize all NSKA objects (False by default)
+        format:
+            If 'dict', the top level object will be a dictionary, else it will be a list
         
         Returns
         -------
@@ -390,7 +404,7 @@ def deserialize_plist_from_string(bytes_to_deserialize, full_recurse_convert_nsk
         OverflowError
     '''
     f, plist = _get_valid_nska_plist(io.BytesIO(bytes_to_deserialize))
-    return _unpack_top_level(f, plist, full_recurse_convert_nska)
+    return _unpack_top_level(f, plist, full_recurse_convert_nska, format)
 
 def _get_json_writeable_plist(in_plist, out_plist):
     if isinstance(in_plist, list):
