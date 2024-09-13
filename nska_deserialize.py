@@ -12,7 +12,7 @@ input_path = 'C:\\temp\\demo.plist'
 
 with open(input_path, 'rb') as f:
     try:
-        deserialized_plist = nd.deserialize_plist(f, True) # Get Deserialized plist
+        deserialized_plist = nd.deserialize_plist(f, True, format=dict) # Get Deserialized plist
     except (nd.DeserializeError, 
             nd.biplist.NotBinaryPlistException, 
             nd.biplist.InvalidPlistException,
@@ -42,7 +42,7 @@ import plistlib
 import re
 import sys
 
-deserializer_version = '1.4.0'
+deserializer_version = '1.5.1'
 
 rec_depth = 0
 rec_uids = []
@@ -173,7 +173,7 @@ def _get_root_element_names(plist_dict):
     roots = []
 
     top_element = plist_dict.get('$top', None)
-    if top_element:
+    if top_element is not None:
         roots = [ x for x in top_element.keys() ]
     else:
         raise DeserializeError('$top element not found! Not an NSKeyedArchive?')

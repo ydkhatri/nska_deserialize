@@ -83,6 +83,9 @@ if deserialized_plist:
 ```
 
 ### Change log
+**v1.5.1**  
+Minor bug fix - Empty NSKeyedArchive will not raise an exception if it is valid.
+
 **v1.5.0**  
 Minor bug fix - If root level element was NULL, this would create an invalid plist as None/NULL values are not allowed in plists. This now converts it to a blank string.   
 New option `format=dict` will return a dictionary at the top level of a plist instead of the default list format (Thanks @cvandeplas - Christophe Vandeplas).
